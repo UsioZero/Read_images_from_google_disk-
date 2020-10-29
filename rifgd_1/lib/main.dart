@@ -33,7 +33,7 @@ class _MyHomePageState extends State<MyHomePage> {
   signIn.GoogleSignInAccount account;
   ga.FileList list;
 
-  void _sign_in() async {
+  void _signIn() async {
     final googleSignIn =
         signIn.GoogleSignIn.standard(scopes: [ga.DriveApi.DriveScope]);
     account = await googleSignIn.signIn();
@@ -66,15 +66,19 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _listGoogleDriveFiles() async {
     var client = GoogleAuthClient(await account.authHeaders);
     var drive = ga.DriveApi(client);
-
-    drive.files.list(spaces: 'appDataFolder').then((value) {
+    drive.files.list(q: "'root' in parents").then((value) {
       setState(() {
         list = value;
       });
-      for (var i = 0; i < list.files.length; i++) {
-        print("Id: ${list.files[i].id} File Name:${list.files[i].name}");
-      }
     });
+    // drive.files.list(spaces: 'appDataFolder').then((value) {
+    //   setState(() {
+    //     list = value;
+    //   });
+    //   for (var i = 0; i < list.files.length; i++) {
+    //     print("Id: ${list.files[i].id} File Name:${list.files[i].name}");
+    //   }
+    // });
   }
 
   @override
@@ -102,7 +106,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _sign_in,
+        onPressed: _signIn,
         tooltip: 'Increment',
         child: Icon(Icons.people),
       ),
