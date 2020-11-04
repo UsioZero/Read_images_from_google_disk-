@@ -18,6 +18,7 @@ class _FilesPageState extends State<FilesPage> {
   var fileId;
   signIn.GoogleSignInAccount account;
   ga.FileList list;
+  File fileSaveImage;
 
   void _signIn() async {
     final googleSignIn =
@@ -29,12 +30,13 @@ class _FilesPageState extends State<FilesPage> {
   Future<void> _downloadGoogleDriveFile(String fName, String gdID) async {
     var client = GoogleAuthClient(await account.authHeaders);
     var drive = ga.DriveApi(client);
-    ga.Media file = await drive.files.get(gdID);
+    ga.Media file = await drive.files
+        .get(gdID, downloadOptions: ga.DownloadOptions.FullMedia);
     print(file.stream);
 
     final directory = await getExternalStorageDirectory();
     print(directory.path);
-    final saveFile = File(
+    fileSaveImage = File(
         '${directory.path}/${new DateTime.now().millisecondsSinceEpoch}$fName');
     List<int> dataStore = [];
     file.stream.listen((data) {
@@ -42,29 +44,47 @@ class _FilesPageState extends State<FilesPage> {
       dataStore.insertAll(dataStore.length, data);
     }, onDone: () {
       print("Task Done");
-      saveFile.writeAsBytes(dataStore);
-      print("File saved at ${saveFile.path}");
+      fileSaveImage.writeAsBytes(dataStore);
+      print("File saved at ${fileSaveImage.path}");
     }, onError: (error) {
       print("Some Error");
     });
   }
 
+  Future<void> _showImage() async {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) {
+        return CupertinoAlertDialog(
+          title: Text('Oh sheet, you pressed button'),
+          content: Image.file(fileSaveImage),
+          actions: <Widget>[
+            CupertinoDialogAction(
+              child: Text('Add'),
+              onPressed: () {},
+            ),
+            CupertinoDialogAction(
+              child: Text('Back'),
+              onPressed: () => Navigator.pop(context),
+            )
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _listGoogleDriveFiles() async {
     var client = GoogleAuthClient(await account.authHeaders);
     var drive = ga.DriveApi(client);
-    drive.files.list(q: "'root' in parents").then((value) {
+    drive.files
+        .list(
+      q: "'root' in parents",
+    )
+        .then((value) {
       setState(() {
         list = value;
       });
     });
-    // drive.files.list(spaces: 'appDataFolder').then((value) {
-    //   setState(() {
-    //     list = value;
-    //   });
-    //   for (var i = 0; i < list.files.length; i++) {
-    //     print("Id: ${list.files[i].id} File Name:${list.files[i].name}");
-    //   }
-    // });
   }
 
   @override
@@ -82,7 +102,7 @@ class _FilesPageState extends State<FilesPage> {
               onPressed: _listGoogleDriveFiles,
               color: Colors.green,
             ),
-            Expanded(flex: 10, child: buildGridView()),
+            buildGridView(),
           ],
         ),
       ),
@@ -94,80 +114,83 @@ class _FilesPageState extends State<FilesPage> {
     );
   }
 
-  List<Widget> generateFilesWidget() {
-    List<Widget> listItem = List<Widget>();
-    if (list != null) {
-      for (var i = 0; i < list.files.length; i++) {
-        listItem.add(Row(
-          children: <Widget>[
-            Container(
-              width: MediaQuery.of(context).size.width * 0.05,
-              child: Text('${i + 1}'),
-            ),
-            Expanded(
-              child: Text(list.files[i].name),
-            ),
-            Container(
-              width: MediaQuery.of(context).size.width * 0.3,
-              child: FlatButton(
+  Expanded buildGridView() {
+    if (list != null)
+      return Expanded(
+        child: ListView.builder(
+          itemCount: list.files.length,
+          itemBuilder: (context, index) {
+            return list.files[index].name
+                            .substring(list.files[index].name.length - 3) ==
+                        'jpg' ||
+                    list.files[index].name
+                            .substring(list.files[index].name.length - 4) ==
+                        'jpeg' ||
+                    list.files[index].name
+                            .substring(list.files[index].name.length - 3) ==
+                        'png'
+                ? buildCard(index)
+                : Container();
+          },
+        ),
+      );
+    else
+      return Expanded(child: Container());
+  }
+
+  Card buildCard(int index) {
+    return Card(
+      child: Column(
+        children: [
+          Row(
+            children: <Widget>[
+              Expanded(
+                flex: 1,
+                child: Text('${index + 1}'),
+              ),
+              Expanded(
+                flex: 13,
+                child: Text(list.files[index].name),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              FlatButton(
                 child: Text(
-                  'Download',
+                  'Show image',
                   style: TextStyle(
                     color: Colors.white,
                   ),
                 ),
-                color: Colors.indigo,
+                color: Colors.green[800],
                 onPressed: () {
-                  _downloadGoogleDriveFile(
-                      list.files[i].name, list.files[i].id);
+                  _showImage();
                 },
               ),
-            ),
-          ],
-        ));
-      }
-    }
-    return listItem;
-  }
-
-  ListView buildGridView() {
-    if (list != null)
-      return ListView.builder(
-        itemCount: list.files.length,
-        itemBuilder: (context, index) {
-          return Card(
-            child: Row(
-              children: <Widget>[
-                Container(
-                  width: MediaQuery.of(context).size.width * 0.05,
-                  child: Text('${index + 1}'),
-                ),
-                Expanded(
-                  child: Text(list.files[index].name),
-                ),
-                Container(
-                  width: MediaQuery.of(context).size.width * 0.3,
-                  child: FlatButton(
-                    child: Text(
-                      'Download',
-                      style: TextStyle(
-                        color: Colors.white,
-                      ),
+              Padding(
+                padding: EdgeInsets.only(
+                    left: MediaQuery.of(context).size.width * 0.4),
+                child: FlatButton(
+                  child: Text(
+                    'Download',
+                    style: TextStyle(
+                      color: Colors.white,
                     ),
-                    color: Colors.indigo,
-                    onPressed: () {
-                      // _downloadGoogleDriveFile(
-                      //     list.files[index].name, list.files[index].id);
-                    },
                   ),
+                  color: Colors.indigo,
+                  onPressed: () {
+                    _downloadGoogleDriveFile(
+                        list.files[index].name, list.files[index].id);
+                  },
                 ),
-              ],
-            ),
-          );
-        },
-      );
-    else
-      return ListView.builder(itemBuilder: (context, index) {});
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   // FutureBuilder buildImagesFuture(int index) {
